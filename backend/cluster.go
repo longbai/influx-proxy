@@ -79,6 +79,9 @@ type InfluxCluster struct {
 	defaultTags    map[string]string
 	WriteTracing   int
 	QueryTracing   int
+
+	kafka SideWrite
+	opentsdb SideWrite
 }
 
 type Statistics struct {
@@ -126,6 +129,16 @@ func NewInfluxCluster(cfgsrc *RedisConfigSource, nodecfg *NodeConfig) (ic *Influ
 	if err != nil {
 		panic(err)
 		return
+	}
+
+	ic.kafka, err = NewKafka(nodecfg)
+	if err != nil {
+		log.Println(err)
+	}
+
+	ic.opentsdb,err = NewOpentsdb(nodecfg)
+	if err != nil {
+		log.Println(err)
 	}
 
 	// feature
@@ -488,7 +501,7 @@ func (ic *InfluxCluster) WriteRow(line []byte) {
 		return
 	}
 
-	// don't block here for a lont time, we just have one worker.
+	// don't block here for a long time, we just have one worker.
 	for _, b := range bs {
 		err = b.Write(line)
 		if err != nil {
@@ -538,7 +551,8 @@ func (ic *InfluxCluster) Write(p []byte) (err error) {
 			}
 		}
 	}
-
+	go ic.kafka.Write(p)
+	go ic.opentsdb.Write(p)
 	return
 }
 

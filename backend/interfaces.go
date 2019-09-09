@@ -19,3 +19,8 @@ type BackendAPI interface {
 	Write(p []byte) (err error)
 	Close() (err error)
 }
+
+type SideWrite interface {
+	Write(p []byte) (err error)
+	Close() (err error)
+}

@@ -59,6 +59,17 @@ type NodeConfig struct {
 	IdleTimeout  int
 	WriteTracing int
 	QueryTracing int
+
+	KafkaEnable int
+	KafkaTopic string
+	KafkaServers string
+	KafkaTimeout int
+	KafkaCompressMode string
+
+	OpentsdbEnable int
+	OpentsdbDb string
+	OpentsdbServer string
+
 }
 
 type BackendConfig struct {
