@@ -517,17 +517,37 @@ func (ic *InfluxCluster) WriteRow(line []byte)(err error) {
 	return ic.writeLine(key, line)
 }
 
+// A Buffer is a variable-sized buffer of bytes with Read and Write methods.
+// The zero value for Buffer is an empty buffer ready to use.
+type Buffer struct {
+	buf      []byte // contents are the bytes buf[off : len(buf)]
+	off      int    // read at &buf[off], write at &buf[len(buf)]
+}
+
+func (b *Buffer) readSlice(delim byte) (line []byte, err error) {
+	i := bytes.IndexByte(b.buf[b.off:], delim)
+	end := b.off + i + 1
+	if i < 0 {
+		end = len(b.buf)
+		err = io.EOF
+	}
+	line = b.buf[b.off:end]
+	b.off = end
+	return line, err
+}
+
 func (ic *InfluxCluster) Write(p []byte) (err error) {
 	atomic.AddInt64(&ic.stats.WriteRequests, 1)
 	defer func(start time.Time) {
 		atomic.AddInt64(&ic.stats.WriteRequestDuration, time.Since(start).Nanoseconds())
 	}(time.Now())
 
-	buf := bytes.NewBuffer(p)
+	buf := Buffer{p, 0}
+
 
 	var line []byte
 	for {
-		line, err = buf.ReadBytes('\n')
+		line, err = buf.readSlice('\n')
 		switch err {
 		default:
 			log.Printf("error: %s\n", err)

@@ -15,6 +15,7 @@ import (
 
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	redis "gopkg.in/redis.v5"
+	"github.com/gin-gonic/gin"
 
 	"github.com/shell909090/influx-proxy/backend"
 )
@@ -121,10 +122,11 @@ func main() {
 	ic := backend.NewInfluxCluster(rcs, &nodecfg)
 	ic.LoadConfig()
 
-	mux := http.NewServeMux()
+	mux := gin.Default()
 	NewHttpService(ic, nodecfg.DB).Register(mux)
 
 	log.Printf("http service start.")
+
 	server := &http.Server{
 		Addr:        nodecfg.ListenAddr,
 		Handler:     mux,

@@ -6,6 +6,7 @@ package main
 
 import (
 	"compress/gzip"
+	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -31,13 +32,25 @@ func NewHttpService(ic *backend.InfluxCluster, db string) (hs *HttpService) {
 	return
 }
 
-func (hs *HttpService) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/reload", hs.HandlerReload)
-	mux.HandleFunc("/ping", hs.HandlerPing)
-	mux.HandleFunc("/query", hs.HandlerQuery)
-	mux.HandleFunc("/write", hs.HandlerWrite)
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+func contextHandle(handler func(http.ResponseWriter, *http.Request)) (gh func(*gin.Context)){
+	return func(context *gin.Context) {
+		handler(context.Writer, context.Request)
+	}
+}
+
+func (hs *HttpService) Register(mux *gin.Engine) {
+	mux.Any("/reload", contextHandle(hs.HandlerReload))
+
+	mux.GET("/ping", contextHandle(hs.HandlerPing))
+	mux.HEAD("/ping", contextHandle(hs.HandlerPing))
+
+	mux.GET("/query", contextHandle(hs.HandlerQuery))
+	mux.POST("/query", contextHandle(hs.HandlerQuery))
+
+	mux.POST("/write", contextHandle(hs.HandlerWrite))
+
+	mux.Any("/debug/pprof/", contextHandle(pprof.Index))
+	mux.Any("/debug/pprof/profile", contextHandle(pprof.Profile))
 	hs.FalconRegister(mux)
 }
 

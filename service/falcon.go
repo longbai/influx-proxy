@@ -2,33 +2,34 @@ package main
 
 import (
 	"compress/gzip"
+	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
 
 	json "github.com/json-iterator/go"
 )
 
-func  (hs *HttpService)FalconRegister(mux *http.ServeMux) {
-	mux.HandleFunc("/api/push", hs.push)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok\n"))
+func  (hs *HttpService)FalconRegister(mux *gin.Engine) {
+	mux.POST("/api/push", contextHandle(hs.push))
+
+	mux.Any("/health", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
 	})
 
-	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("5.1.1"))
+	mux.Any("/version", func(c *gin.Context) {
+		c.String(http.StatusOK, "5.1.1")
 	})
 
-	mux.HandleFunc("/workdir", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("/home/"))
+	mux.Any("/workdir", func(c *gin.Context) {
+		c.String(http.StatusOK, "/home/")
 	})
 
-	mux.HandleFunc("/config", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		_, _ = w.Write([]byte(""))
+	mux.Any("/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "")
 	})
 
-	mux.HandleFunc("/config/reload", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok\n"))
+	mux.Any("/config/reload", func(c *gin.Context) {
+		c.String(http.StatusOK, "ok\n")
 	})
 
 	//mux.HandleFunc("/debug/connpool/", func(w http.ResponseWriter, r *http.Request) {
@@ -36,33 +37,29 @@ func  (hs *HttpService)FalconRegister(mux *http.ServeMux) {
 	//})
 
 	// counter
-	mux.HandleFunc("/counter/all", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		_, _ = w.Write([]byte(""))
+	mux.Any("/counter/all", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "")
 	})
 
 	// TO BE DISCARDed
-	mux.HandleFunc("/statistics/all", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		_, _ = w.Write([]byte(""))
-	})
+	//mux.HandleFunc("/statistics/all", func(w http.ResponseWriter, r *http.Request) {
+	//	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	//	_, _ = w.Write([]byte(""))
+	//})
 
 	// step
-	mux.HandleFunc("/proc/step", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		_, _ = w.Write([]byte(""))
+	mux.Any("/proc/step", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "")
 	})
 
 	// trace
-	mux.HandleFunc("/trace/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		_, _ = w.Write([]byte(""))
+	mux.Any("/trace/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "")
 	})
 
 	// filter
-	mux.HandleFunc("/filter/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-		_, _ = w.Write([]byte(""))
+	mux.Any("/filter/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, "")
 	})
 }
 
