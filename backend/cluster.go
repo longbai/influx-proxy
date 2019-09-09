@@ -80,8 +80,8 @@ type InfluxCluster struct {
 	WriteTracing   int
 	QueryTracing   int
 
-	kafka SideWrite
-	opentsdb SideWrite
+	kafka 			*KafkaBackend
+	opentsdb 		*OpentsdbBackend
 }
 
 type Statistics struct {
@@ -474,25 +474,7 @@ func (ic *InfluxCluster) Query(w http.ResponseWriter, req *http.Request) (err er
 	return
 }
 
-// Wrong in one row will not stop others.
-// So don't try to return error, just print it.
-func (ic *InfluxCluster) WriteRow(line []byte) {
-	atomic.AddInt64(&ic.stats.PointsWritten, 1)
-	// maybe trim?
-	line = bytes.TrimRight(line, " \t\r\n")
-
-	// empty line, ignore it.
-	if len(line) == 0 {
-		return
-	}
-
-	key, err := ScanKey(line)
-	if err != nil {
-		log.Printf("scan key error: %s\n", err)
-		atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
-		return
-	}
-
+func (ic *InfluxCluster) writeLine(key string, line []byte)(err error){
 	bs, ok := ic.GetBackends(key)
 	if !ok {
 		log.Printf("new measurement: %s\n", key)
@@ -511,6 +493,28 @@ func (ic *InfluxCluster) WriteRow(line []byte) {
 		}
 	}
 	return
+}
+
+// Wrong in one row will not stop others.
+// So don't try to return error, just print it.
+func (ic *InfluxCluster) WriteRow(line []byte)(err error) {
+	atomic.AddInt64(&ic.stats.PointsWritten, 1)
+	// maybe trim?
+	line = bytes.TrimRight(line, " \t\r\n")
+
+	// empty line, ignore it.
+	if len(line) == 0 {
+		return
+	}
+
+	key, err := ScanKey(line)
+	if err != nil {
+		log.Printf("scan key error: %s\n", err)
+		atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
+		return
+	}
+	_ = ic.kafka.WriteRow(line)
+	return ic.writeLine(key, line)
 }
 
 func (ic *InfluxCluster) Write(p []byte) (err error) {
@@ -537,7 +541,7 @@ func (ic *InfluxCluster) Write(p []byte) (err error) {
 			break
 		}
 
-		ic.WriteRow(line)
+		_ = ic.WriteRow(line)
 	}
 
 	ic.lock.RLock()
@@ -551,8 +555,7 @@ func (ic *InfluxCluster) Write(p []byte) (err error) {
 			}
 		}
 	}
-	go ic.kafka.Write(p)
-	go ic.opentsdb.Write(p)
+	ic.opentsdb.Write(p)
 	return
 }
 

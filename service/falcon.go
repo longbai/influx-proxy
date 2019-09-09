@@ -123,9 +123,9 @@ func (hs *HttpService)push(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	hs.ic.FalconPush(p)
+	count, _ := hs.ic.FalconPush(p)
 
-	bs, _ := json.Marshal(Dto{Msg: "success", Data: &TransferResp{Msg:"ok", Total:1000}})
+	bs, _ := json.Marshal(Dto{Msg: "success", Data: &TransferResp{Msg:"ok", Total:count}})
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	_, _ = w.Write(bs)
 	return

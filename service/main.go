@@ -25,6 +25,10 @@ var (
 	NodeName    string
 	RedisAddr   string
 	LogFilePath string
+
+	OpentsdbAddr 	string
+	KafkaAddr 		string
+	KafkaTopic 		string
 )
 
 func init() {
@@ -33,7 +37,12 @@ func init() {
 	flag.StringVar(&LogFilePath, "log-file-path", "/var/log/influx-proxy.log", "output file")
 	flag.StringVar(&ConfigFile, "config", "", "config file")
 	flag.StringVar(&NodeName, "node", "l1", "node name")
-	flag.StringVar(&RedisAddr, "redis", "localhost:6379", "config file")
+	flag.StringVar(&RedisAddr, "redis", "localhost:6379", "redis server")
+
+	flag.StringVar(&OpentsdbAddr, "tsdb", "", "open tsdb server")
+
+	flag.StringVar(&KafkaAddr, "kafka", "", "kafka server")
+	flag.StringVar(&KafkaTopic, "topic", "", "kafka topic")
 	flag.Parse()
 }
 
@@ -96,6 +105,17 @@ func main() {
 	if err != nil {
 		log.Printf("config source load failed.")
 		return
+	}
+
+	if KafkaAddr != "" && KafkaTopic != ""{
+		nodecfg.KafkaTopic = KafkaTopic
+		nodecfg.KafkaServers = KafkaAddr
+		nodecfg.KafkaEnable = 1
+	}
+
+	if OpentsdbAddr != ""{
+		 nodecfg.OpentsdbServer = OpentsdbAddr
+		 nodecfg.OpentsdbEnable = 1
 	}
 
 	ic := backend.NewInfluxCluster(rcs, &nodecfg)

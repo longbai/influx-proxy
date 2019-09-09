@@ -2,6 +2,7 @@ package backend
 
 import (
 	"github.com/Shopify/sarama"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -13,8 +14,10 @@ type KafkaBackend struct {
 	topic   string
 	cfg     *sarama.Config
 
+	ch_lines     chan []byte
+
 	lastError error //用于防止所有的错误都被 kafka熔断的错误提示刷掉
-	producer  sarama.AsyncProducer
+	producer  sarama.SyncProducer
 }
 
 func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
@@ -27,8 +30,8 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 
 	retryMax := 3
 	//compression
-	timeout := config.KafkaTimeout
-	maxMessageBytes := 4 * 1024 * 1024
+	timeout := 60
+	maxMessageBytes := 8 * 1024 * 1024
 
 	cfg := sarama.NewConfig()
 	cfg.Producer.Return.Successes = true
@@ -46,7 +49,7 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 
 	cfg.Producer.MaxMessageBytes = maxMessageBytes
 
-	producer, err := sarama.NewAsyncProducer(servers, cfg)
+	producer, err := sarama.NewSyncProducer(servers, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -61,16 +64,27 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 	}, nil
 }
 
-func (kafka *KafkaBackend) Write(p []byte) error {
+func (kafka *KafkaBackend) send(p [][]byte) error {
 	if kafka.enable == 0 {
 		return nil
 	}
-
-	msg := &sarama.ProducerMessage{
-		Topic: kafka.topic,
-		Value: sarama.ByteEncoder(p),
+	var messages []*sarama.ProducerMessage
+	for _, v := range p{
+		msg := &sarama.ProducerMessage{
+			Topic: kafka.topic,
+			Value: sarama.ByteEncoder(v),
+		}
+		messages = append(messages, msg)
 	}
-	kafka.producer.Input() <- msg
+
+	return kafka.producer.SendMessages(messages)
+}
+
+func (kafka *KafkaBackend) WriteRow(p []byte) error {
+	if kafka.enable == 0 {
+		return nil
+	}
+	kafka.ch_lines <- p
 	return nil
 }
 
@@ -79,4 +93,44 @@ func (kafka *KafkaBackend) Close() error {
 		return nil
 	}
 	return kafka.producer.Close()
+}
+
+
+func (kafka *KafkaBackend) pingChan() {
+	for range time.Tick(time.Second) {
+		kafka.ch_lines <- nil
+	}
+}
+
+func (kafka *KafkaBackend) startLoop() {
+	buffer := make([][]byte, 2*batchSize)
+	buffer = buffer[:0]
+	last := time.Now()
+	for data := range kafka.ch_lines {
+		if data != nil {
+			buffer = append(buffer, data)
+		}
+		l := len(buffer)
+
+		if l >= batchSize || time.Now().After(last.Add(time.Second*10)) {
+			if l >= batchSize {
+				bak := make([][]byte, l)
+				copy(bak, buffer)
+				go func() {
+					if err := kafka.send(bak); err != nil {
+						// TODO retry
+						log.Println("loopSend failed -", err)
+					}
+				}()
+			} else {
+				if err := kafka.send(buffer); err != nil {
+					// TODO retry
+					log.Println("loopSend failed -", err)
+				}
+			}
+
+			buffer = buffer[:0]
+			last = time.Now()
+		}
+	}
 }

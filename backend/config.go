@@ -63,13 +63,10 @@ type NodeConfig struct {
 	KafkaEnable int
 	KafkaTopic string
 	KafkaServers string
-	KafkaTimeout int
 	KafkaCompressMode string
 
 	OpentsdbEnable int
-	OpentsdbDb string
 	OpentsdbServer string
-
 }
 
 type BackendConfig struct {
