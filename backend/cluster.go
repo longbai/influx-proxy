@@ -567,3 +567,4 @@ func (ic *InfluxCluster) Close() (err error) {
 	}
 	return
 }
+

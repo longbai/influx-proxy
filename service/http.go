@@ -38,6 +38,7 @@ func (hs *HttpService) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/write", hs.HandlerWrite)
 	mux.HandleFunc("/debug/pprof/", pprof.Index)
 	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	hs.FalconRegister(mux)
 }
 
 func (hs *HttpService) HandlerReload(w http.ResponseWriter, req *http.Request) {
