@@ -32,14 +32,14 @@ func NewHttpService(ic *backend.InfluxCluster, db string) (hs *HttpService) {
 	return
 }
 
-func contextHandle(handler func(http.ResponseWriter, *http.Request)) (gh func(*gin.Context)){
+func contextHandle(handler func(http.ResponseWriter, *http.Request)) (gh func(*gin.Context)) {
 	return func(context *gin.Context) {
 		handler(context.Writer, context.Request)
 	}
 }
 
 func (hs *HttpService) Register(mux *gin.Engine) {
-	mux.Any("/reload", contextHandle(hs.HandlerReload))
+	mux.POST("/reload", contextHandle(hs.HandlerReload))
 
 	mux.GET("/ping", contextHandle(hs.HandlerPing))
 	mux.HEAD("/ping", contextHandle(hs.HandlerPing))
@@ -49,8 +49,8 @@ func (hs *HttpService) Register(mux *gin.Engine) {
 
 	mux.POST("/write", contextHandle(hs.HandlerWrite))
 
-	mux.Any("/debug/pprof/", contextHandle(pprof.Index))
-	mux.Any("/debug/pprof/profile", contextHandle(pprof.Profile))
+	mux.GET("/debug/pprof/", contextHandle(pprof.Index))
+	mux.GET("/debug/pprof/profile", contextHandle(pprof.Profile))
 	hs.FalconRegister(mux)
 }
 

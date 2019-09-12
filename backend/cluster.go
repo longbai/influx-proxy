@@ -69,7 +69,7 @@ type InfluxCluster struct {
 	query_executor Querier
 	ForbiddenQuery []*regexp.Regexp
 	ObligatedQuery []*regexp.Regexp
-	cfgsrc         *RedisConfigSource
+	cfgsrc         ConfigSource
 	bas            []BackendAPI
 	backends       map[string]BackendAPI
 	m2bs           map[string][]BackendAPI // measurements to backends
@@ -80,8 +80,8 @@ type InfluxCluster struct {
 	WriteTracing   int
 	QueryTracing   int
 
-	kafka 			*KafkaBackend
-	opentsdb 		*OpentsdbBackend
+	kafka    *KafkaBackend
+	opentsdb *OpentsdbBackend
 }
 
 type Statistics struct {
@@ -95,9 +95,10 @@ type Statistics struct {
 	PointsWrittenFail    int64
 	WriteRequestDuration int64
 	QueryRequestDuration int64
+	TransferWritten      int64
 }
 
-func NewInfluxCluster(cfgsrc *RedisConfigSource, nodecfg *NodeConfig) (ic *InfluxCluster) {
+func NewInfluxCluster(cfgsrc ConfigSource, nodecfg *NodeConfig) (ic *InfluxCluster) {
 	ic = &InfluxCluster{
 		Zone:           nodecfg.Zone,
 		nexts:          nodecfg.Nexts,
@@ -136,7 +137,7 @@ func NewInfluxCluster(cfgsrc *RedisConfigSource, nodecfg *NodeConfig) (ic *Influ
 		log.Println(err)
 	}
 
-	ic.opentsdb,err = NewOpentsdb(nodecfg)
+	ic.opentsdb, err = NewOpentsdb(nodecfg)
 	if err != nil {
 		log.Println(err)
 	}
@@ -171,6 +172,7 @@ func (ic *InfluxCluster) Flush() {
 	ic.counter.PointsWrittenFail = 0
 	ic.counter.WriteRequestDuration = 0
 	ic.counter.QueryRequestDuration = 0
+	ic.counter.TransferWritten = 0
 }
 
 func (ic *InfluxCluster) WriteStatistics() (err error) {
@@ -188,6 +190,7 @@ func (ic *InfluxCluster) WriteStatistics() (err error) {
 			"statPointsWrittenFail":    ic.counter.PointsWrittenFail,
 			"statQueryRequestDuration": ic.counter.QueryRequestDuration,
 			"statWriteRequestDuration": ic.counter.WriteRequestDuration,
+			"statTransferWritten":      ic.counter.TransferWritten,
 		},
 		time.Now())
 	if err != nil {
@@ -223,7 +226,6 @@ func (ic *InfluxCluster) ForbidQuery(s string) (err error) {
 	if err != nil {
 		return
 	}
-
 	ic.lock.Lock()
 	defer ic.lock.Unlock()
 	ic.ForbiddenQuery = append(ic.ForbiddenQuery, r)
@@ -235,7 +237,6 @@ func (ic *InfluxCluster) EnsureQuery(s string) (err error) {
 	if err != nil {
 		return
 	}
-
 	ic.lock.Lock()
 	defer ic.lock.Unlock()
 	ic.ObligatedQuery = append(ic.ObligatedQuery, r)
@@ -252,7 +253,7 @@ func (ic *InfluxCluster) AddNext(ba BackendAPI) {
 func (ic *InfluxCluster) loadBackends() (backends map[string]BackendAPI, bas []BackendAPI, err error) {
 	backends = make(map[string]BackendAPI)
 
-	bkcfgs, err := ic.cfgsrc.LoadBackends()
+	bkcfgs, err := ic.cfgsrc.LoadAllBackends()
 	if err != nil {
 		return
 	}
@@ -357,7 +358,6 @@ func (ic *InfluxCluster) CheckQuery(q string) (err error) {
 		}
 		return ErrQueryForbidden
 	}
-
 	return
 }
 
@@ -412,7 +412,6 @@ func (ic *InfluxCluster) Query(w http.ResponseWriter, req *http.Request) (err er
 	if err == nil {
 		return
 	}
-
 	err = ic.CheckQuery(q)
 	if err != nil {
 		w.WriteHeader(400)
@@ -474,7 +473,7 @@ func (ic *InfluxCluster) Query(w http.ResponseWriter, req *http.Request) (err er
 	return
 }
 
-func (ic *InfluxCluster) writeLine(key string, line []byte)(err error){
+func (ic *InfluxCluster) writeLine(key string, line []byte) (err error) {
 	bs, ok := ic.GetBackends(key)
 	if !ok {
 		log.Printf("new measurement: %s\n", key)
@@ -497,7 +496,7 @@ func (ic *InfluxCluster) writeLine(key string, line []byte)(err error){
 
 // Wrong in one row will not stop others.
 // So don't try to return error, just print it.
-func (ic *InfluxCluster) WriteRow(line []byte)(err error) {
+func (ic *InfluxCluster) WriteRow(line []byte) (err error) {
 	atomic.AddInt64(&ic.stats.PointsWritten, 1)
 	// maybe trim?
 	line = bytes.TrimRight(line, " \t\r\n")
@@ -520,8 +519,8 @@ func (ic *InfluxCluster) WriteRow(line []byte)(err error) {
 // A Buffer is a variable-sized buffer of bytes with Read and Write methods.
 // The zero value for Buffer is an empty buffer ready to use.
 type Buffer struct {
-	buf      []byte // contents are the bytes buf[off : len(buf)]
-	off      int    // read at &buf[off], write at &buf[len(buf)]
+	buf []byte // contents are the bytes buf[off : len(buf)]
+	off int    // read at &buf[off], write at &buf[len(buf)]
 }
 
 func (b *Buffer) readSlice(delim byte) (line []byte, err error) {
@@ -543,7 +542,6 @@ func (ic *InfluxCluster) Write(p []byte) (err error) {
 	}(time.Now())
 
 	buf := Buffer{p, 0}
-
 
 	var line []byte
 	for {
@@ -590,4 +588,3 @@ func (ic *InfluxCluster) Close() (err error) {
 	}
 	return
 }
-

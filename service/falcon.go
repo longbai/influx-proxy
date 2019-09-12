@@ -5,30 +5,28 @@ import (
 	"github.com/gin-gonic/gin"
 	"io/ioutil"
 	"net/http"
-
-	json "github.com/json-iterator/go"
 )
 
-func  (hs *HttpService)FalconRegister(mux *gin.Engine) {
-	mux.POST("/api/push", contextHandle(hs.push))
+func (hs *HttpService) FalconRegister(mux *gin.Engine) {
+	mux.POST("/api/push", hs.push)
 
-	mux.Any("/health", func(c *gin.Context) {
+	mux.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
 	})
 
-	mux.Any("/version", func(c *gin.Context) {
+	mux.GET("/version", func(c *gin.Context) {
 		c.String(http.StatusOK, "5.1.1")
 	})
 
-	mux.Any("/workdir", func(c *gin.Context) {
+	mux.GET("/workdir", func(c *gin.Context) {
 		c.String(http.StatusOK, "/home/")
 	})
 
-	mux.Any("/config", func(c *gin.Context) {
+	mux.GET("/config", func(c *gin.Context) {
 		c.JSON(http.StatusOK, "")
 	})
 
-	mux.Any("/config/reload", func(c *gin.Context) {
+	mux.GET("/config/reload", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok\n")
 	})
 
@@ -37,7 +35,7 @@ func  (hs *HttpService)FalconRegister(mux *gin.Engine) {
 	//})
 
 	// counter
-	mux.Any("/counter/all", func(c *gin.Context) {
+	mux.GET("/counter/all", func(c *gin.Context) {
 		c.JSON(http.StatusOK, "")
 	})
 
@@ -48,31 +46,20 @@ func  (hs *HttpService)FalconRegister(mux *gin.Engine) {
 	//})
 
 	// step
-	mux.Any("/proc/step", func(c *gin.Context) {
+	mux.GET("/proc/step", func(c *gin.Context) {
 		c.JSON(http.StatusOK, "")
 	})
 
 	// trace
-	mux.Any("/trace/", func(c *gin.Context) {
+	mux.GET("/trace/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, "")
 	})
 
 	// filter
-	mux.Any("/filter/", func(c *gin.Context) {
+	mux.GET("/filter/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, "")
 	})
 }
-
-func RenderJson(w http.ResponseWriter, v interface{}) {
-	bs, err := json.Marshal(v)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	_, _ = w.Write(bs)
-}
-
 
 type Dto struct {
 	Msg  string      `json:"msg"`
@@ -86,18 +73,11 @@ type TransferResp struct {
 	Latency    int64
 }
 
-
-
-func (hs *HttpService)push(w http.ResponseWriter, req *http.Request) {
+func (hs *HttpService) push(c *gin.Context) {
+	req := c.Request
 	defer req.Body.Close()
 	if req.ContentLength == 0 {
-		http.Error(w, "blank body", http.StatusBadRequest)
-		return
-	}
-
-	if req.Method != "POST" {
-		w.WriteHeader(405)
-		_, _ = w.Write([]byte("method not allow."))
+		c.String(http.StatusBadRequest, "blank body")
 		return
 	}
 
@@ -105,8 +85,7 @@ func (hs *HttpService)push(w http.ResponseWriter, req *http.Request) {
 	if req.Header.Get("Content-Encoding") == "gzip" {
 		b, err := gzip.NewReader(req.Body)
 		if err != nil {
-			w.WriteHeader(400)
-			_, _ = w.Write([]byte("unable to decode gzip body"))
+			c.String(http.StatusBadRequest, "unable to decode gzip body")
 			return
 		}
 		defer b.Close()
@@ -115,15 +94,11 @@ func (hs *HttpService)push(w http.ResponseWriter, req *http.Request) {
 
 	p, err := ioutil.ReadAll(body)
 	if err != nil {
-		w.WriteHeader(400)
-		_, _ = w.Write([]byte(err.Error()))
+		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
 
 	count, _ := hs.ic.FalconPush(p)
-
-	bs, _ := json.Marshal(Dto{Msg: "success", Data: &TransferResp{Msg:"ok", Total:count}})
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	_, _ = w.Write(bs)
+	c.JSON(http.StatusOK, Dto{Msg: "success", Data: &TransferResp{Msg: "ok", Total: count}})
 	return
 }

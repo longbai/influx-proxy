@@ -14,7 +14,7 @@ type KafkaBackend struct {
 	topic   string
 	cfg     *sarama.Config
 
-	ch_lines     chan []byte
+	ch_lines chan []byte
 
 	lastError error //用于防止所有的错误都被 kafka熔断的错误提示刷掉
 	producer  sarama.SyncProducer
@@ -69,7 +69,7 @@ func (kafka *KafkaBackend) send(p [][]byte) error {
 		return nil
 	}
 	var messages []*sarama.ProducerMessage
-	for _, v := range p{
+	for _, v := range p {
 		msg := &sarama.ProducerMessage{
 			Topic: kafka.topic,
 			Value: sarama.ByteEncoder(v),
@@ -94,7 +94,6 @@ func (kafka *KafkaBackend) Close() error {
 	}
 	return kafka.producer.Close()
 }
-
 
 func (kafka *KafkaBackend) pingChan() {
 	for range time.Tick(time.Second) {

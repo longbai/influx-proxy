@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/influxdata/influxdb1-client/models"
@@ -22,7 +21,7 @@ type OpentsdbBackend struct {
 	running   bool
 	server    string
 
-	ch_points     chan []DataPoint
+	ch_points chan []DataPoint
 }
 
 type DataPoint struct {
@@ -32,7 +31,8 @@ type DataPoint struct {
 	Tags      map[string]string `json:"tags"`
 }
 
-const batchSize = 16*1024
+const batchSize = 16 * 1024
+
 func NewOpentsdb(config *NodeConfig) (*OpentsdbBackend, error) {
 	if config.OpentsdbEnable == 0 {
 		return &OpentsdbBackend{}, nil
@@ -177,22 +177,6 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []DataPoint) error {
 	return err
 }
 
-func parseTags(tags string) map[string]string {
-	l := strings.Split(tags, ",")
-	if len(l) == 0 {
-		return nil
-	}
-	ret := map[string]string{}
-	for _, v := range l {
-		ar := strings.Split(v, "=")
-		if len(ar) != 2 {
-			continue
-		}
-		ret[ar[0]] = ar[1]
-	}
-	return ret
-}
-
 func covertFalconToDataPoints(value []*FalconMetricValue) []DataPoint {
 	var points []DataPoint
 	for _, v := range value {
@@ -201,9 +185,6 @@ func covertFalconToDataPoints(value []*FalconMetricValue) []DataPoint {
 			Timestamp: v.Timestamp,
 			Value:     v.Value,
 			Tags:      v.TagMap,
-		}
-		if _, ok := x.Tags["endpoint"]; !ok {
-			x.Tags["endpoint"] = v.Endpoint
 		}
 		points = append(points, x)
 	}
@@ -222,4 +203,3 @@ func (tsdb *OpentsdbBackend) WriteFalcon(value []*FalconMetricValue) error {
 func (tsdb *OpentsdbBackend) Close() error {
 	return nil
 }
-

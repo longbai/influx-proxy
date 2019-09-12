@@ -5,8 +5,10 @@
 package backend
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -50,42 +52,28 @@ func LoadStructFromMap(data map[string]string, o interface{}) (err error) {
 	return
 }
 
-type NodeConfig struct {
-	ListenAddr   string
-	DB           string
-	Zone         string
-	Nexts        string
-	Interval     int
-	IdleTimeout  int
-	WriteTracing int
-	QueryTracing int
-
-	KafkaEnable int
-	KafkaTopic string
-	KafkaServers string
-	KafkaCompressMode string
-
-	OpentsdbEnable int
-	OpentsdbServer string
-}
-
-type BackendConfig struct {
-	URL             string
-	DB              string
-	Zone            string
-	Interval        int
-	Timeout         int
-	TimeoutQuery    int
-	MaxRowLimit     int
-	CheckInterval   int
-	RewriteInterval int
-	WriteOnly       int
-}
-
 type RedisConfigSource struct {
 	client *redis.Client
 	node   string
 	zone   string
+}
+
+func LoadJson(configfile string, cfg interface{}) (err error) {
+	file, err := os.Open(configfile)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	dec := json.NewDecoder(file)
+	err = dec.Decode(&cfg)
+	return
+}
+
+func NewRedisConfigSourceFromFile(file string, node string) (rcs *RedisConfigSource, err error) {
+	var options redis.Options
+	err = LoadJson(file, &options)
+	return NewRedisConfigSource(&options, node), nil
 }
 
 func NewRedisConfigSource(options *redis.Options, node string) (rcs *RedisConfigSource) {
@@ -124,7 +112,7 @@ func (rcs *RedisConfigSource) LoadNode() (nodecfg NodeConfig, err error) {
 	return
 }
 
-func (rcs *RedisConfigSource) LoadBackends() (backends map[string]*BackendConfig, err error) {
+func (rcs *RedisConfigSource) LoadAllBackends() (backends map[string]*BackendConfig, err error) {
 	backends = make(map[string]*BackendConfig)
 
 	names, err := rcs.client.Keys("b:*").Result()
@@ -136,7 +124,7 @@ func (rcs *RedisConfigSource) LoadBackends() (backends map[string]*BackendConfig
 	var cfg *BackendConfig
 	for _, name := range names {
 		name = name[2:len(name)]
-		cfg, err = rcs.LoadConfigFromRedis(name)
+		cfg, err = rcs.LoadBackend(name)
 		if err != nil {
 			log.Printf("read redis config error: %s", err)
 			return
@@ -147,7 +135,7 @@ func (rcs *RedisConfigSource) LoadBackends() (backends map[string]*BackendConfig
 	return
 }
 
-func (rcs *RedisConfigSource) LoadConfigFromRedis(name string) (cfg *BackendConfig, err error) {
+func (rcs *RedisConfigSource) LoadBackend(name string) (cfg *BackendConfig, err error) {
 	val, err := rcs.client.HGetAll("b:" + name).Result()
 	if err != nil {
 		log.Printf("redis load error: b:%s", name)

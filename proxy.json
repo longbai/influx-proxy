@@ -1,4 +1,4 @@
 {
-    "node": "l1",
-    "addr": "localhost:6379"
+  "node": "l1",
+  "addr": "localhost:6379"
 }
