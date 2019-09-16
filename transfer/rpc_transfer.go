@@ -67,7 +67,8 @@ func (t *Transfer) Update(args []*backend.FalconMetricValue, reply *TransferResp
 	_, _ = t.Ic.FalconPushMetric(args)
 	reply.Message = "ok"
 	reply.Total = len(args)
-	reply.Latency = (time.Now().UnixNano() - start.UnixNano()) / 1000000
-	fmt.Println("transfer.update", len(args), "duration", reply.Latency)
+	tt := time.Now().UnixNano() - start.UnixNano()
+	reply.Latency = tt / 1000000
+	fmt.Println("Transfer.Update", len(args), "Duration", tt/1000, "μs")
 	return nil
 }

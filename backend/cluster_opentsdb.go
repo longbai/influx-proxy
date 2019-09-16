@@ -129,7 +129,15 @@ func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err er
 			continue
 		}
 
+
 		for k, v := range fields {
+			// skip influxdb int type
+			if bytes.HasSuffix(v, []byte("i")) {
+				s := int(v[0])
+				if s >= 48 && s <= 57 {
+					v = v[:len(v)-1]
+				}
+			}
 			tsdbPoints = append(tsdbPoints, &OpenTsdbDataPoint{
 				Metric:    string(measurement) + "." + k,
 				Timestamp: t / 1000000,
