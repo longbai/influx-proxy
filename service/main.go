@@ -21,11 +21,11 @@ import (
 )
 
 var (
-	ErrConfig   = errors.New("config parse error")
-	ConfigFile  string
-	NodeName    string
-	RedisConf   string
-	LogFilePath string
+	ErrConfig    = errors.New("config parse error")
+	ConfigFile   string
+	NodeName     string
+	RedisConf    string
+	LogFilePath  string
 	TransferAddr string
 
 	OpentsdbAddr string

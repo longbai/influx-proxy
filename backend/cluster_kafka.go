@@ -1,7 +1,6 @@
 package backend
 
 import (
-	"fmt"
 	"github.com/Shopify/sarama"
 	"log"
 	"os"
@@ -50,7 +49,7 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 
 	cfg.Producer.MaxMessageBytes = maxMessageBytes
 
-	switch config.KafkaCompressMode{
+	switch config.KafkaCompressMode {
 	case "lz4":
 		cfg.Version = sarama.V0_10_0_0
 		cfg.Producer.Compression = sarama.CompressionLZ4
@@ -75,7 +74,7 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 		cfg:       cfg,
 		lastError: nil,
 		producer:  producer,
-		ch_lines: make(chan []byte, batchSize),
+		ch_lines:  make(chan []byte, batchSize),
 	}
 
 	go kfk.startLoop()
@@ -95,7 +94,7 @@ func (kafka *KafkaBackend) send(p [][]byte) error {
 		}
 		messages = append(messages, msg)
 	}
-	fmt.Println("kafka sent", len(messages))
+	log.Println("kafka sent", len(messages))
 	return kafka.producer.SendMessages(messages)
 }
 
