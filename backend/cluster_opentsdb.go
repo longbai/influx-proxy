@@ -2,12 +2,13 @@ package backend
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/influxdata/influxdb1-client/models"
 	json "github.com/json-iterator/go"
 )
 
@@ -17,21 +18,20 @@ type OpentsdbBackend struct {
 	transport http.Transport
 	interval  int
 	endpoint  string
-	active    bool
-	running   bool
 	server    string
+	compress int
 
-	ch_points chan []DataPoint
+	ch_points chan []*OpenTsdbDataPoint
 }
 
-type DataPoint struct {
+type OpenTsdbDataPoint struct {
 	Metric    string            `json:"metric"`
 	Timestamp int64             `json:"timestamp"`
-	Value     interface{}       `json:"value"`
+	Value     json.RawMessage   `json:"value"`
 	Tags      map[string]string `json:"tags"`
 }
 
-const batchSize = 16 * 1024
+const batchSize = 1024
 
 func NewOpentsdb(config *NodeConfig) (*OpentsdbBackend, error) {
 	if config.OpentsdbEnable == 0 {
@@ -47,10 +47,12 @@ func NewOpentsdb(config *NodeConfig) (*OpentsdbBackend, error) {
 		interval: config.Interval,
 		endpoint: config.OpentsdbServer + "/api/put",
 		enable:   1,
+		compress: config.OpentsdbCompress,
 
-		ch_points: make(chan []DataPoint, batchSize),
+		ch_points: make(chan []*OpenTsdbDataPoint, batchSize),
 	}
 	go tsdb.startLoop()
+	go tsdb.pingChan()
 	return tsdb, nil
 }
 
@@ -61,7 +63,8 @@ func (tsdb *OpentsdbBackend) pingChan() {
 }
 
 func (tsdb *OpentsdbBackend) startLoop() {
-	buffer := make([]DataPoint, 2*batchSize)
+	log.Println("opentsdb start run")
+	buffer := make([]*OpenTsdbDataPoint, 2*batchSize)
 	buffer = buffer[:0]
 	last := time.Now()
 	for data := range tsdb.ch_points {
@@ -70,20 +73,20 @@ func (tsdb *OpentsdbBackend) startLoop() {
 		}
 		l := len(buffer)
 
-		if l >= batchSize || time.Now().After(last.Add(time.Second*10)) {
+		if l >= batchSize || time.Now().After(last.Add(time.Second*1)) {
 			if l >= batchSize {
-				bak := make([]DataPoint, l)
+				bak := make([]*OpenTsdbDataPoint, l)
 				copy(bak, buffer)
 				go func() {
 					if err := tsdb.send(bak); err != nil {
 						// TODO retry
-						log.Println("loopSend failed -", err)
+						log.Println("loopSend failed more", l, err, cap(buffer), cap(tsdb.ch_points))
 					}
 				}()
-			} else {
+			} else if l > 0 {
 				if err := tsdb.send(buffer); err != nil {
 					// TODO retry
-					log.Println("loopSend failed -", err)
+					log.Println("loopSend failed", l, err, cap(buffer), cap(tsdb.ch_points))
 				}
 			}
 
@@ -93,34 +96,78 @@ func (tsdb *OpentsdbBackend) startLoop() {
 	}
 }
 
-func covertInfluxToDataPoints(p []byte) ([]DataPoint, error) {
-	points, err := models.ParsePoints(p)
-	if err != nil {
-		return nil, err
-	}
-	var tsdbPoints []DataPoint
-	for _, v := range points {
-		tags := v.Tags().Map()
-		iter := v.FieldIterator()
-		for ; ; {
-			var value interface{}
-			switch iter.Type() {
-			case models.Integer:
-				value, _ = iter.IntegerValue()
-			case models.Float:
-				value, _ = iter.FloatValue()
-			case models.String:
-				value = iter.StringValue()
-			}
-			dp := DataPoint{
-				Metric:    string(v.Name()) + "." + string(iter.FieldKey()),
-				Timestamp: v.Time().UnixNano() / 1000000,
-				Value:     value,
-				Tags:      tags,
-			}
-			tsdbPoints = append(tsdbPoints, dp)
+func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err error) {
+	lines := bytes.Split(p, []byte("\n"))
+
+	for _, line := range lines {
+		var tags = map[string]string{}
+		var fields = map[string][]byte{}
+		stringList := bytes.Split(line, []byte(" "))
+		if len(stringList) != 3 {
+			log.Println("list parse failed", len(stringList), string(line))
+			continue
 		}
+		tagList := bytes.Split(stringList[0], []byte(","))
+		measurement := tagList[0]
+
+		for i := 1; i < len(tagList); i++ {
+			kv := bytes.Split(tagList[i], []byte("="))
+			if len(kv) == 2 && len(kv[1]) != 0 {
+				tags[string(kv[0])] = string(kv[1])
+			}
+		}
+		fieldList := bytes.Split(stringList[1], []byte(","))
+		for _, pair := range fieldList {
+			kv := bytes.Split(pair, []byte("="))
+			if len(kv) == 2 && len(kv[1]) != 0 {
+				fields[string(kv[0])] = kv[1]
+			}
+		}
+		t, err := strconv.ParseInt(string(stringList[2]), 10, 64)
+		if err != nil {
+			log.Println("time parse failed", string(stringList[2]), t)
+			continue
+		}
+
+		for k, v := range fields {
+			tsdbPoints = append(tsdbPoints, &OpenTsdbDataPoint{
+				Metric:    string(measurement) + "." + k,
+				Timestamp: t / 1000000,
+				Value:     v,
+				Tags:      tags,
+			})
+		}
+
 	}
+
+	//points, err := models.ParsePoints(p)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//var tsdbPoints []*OpenTsdbDataPoint
+	//for _, v := range points {
+	//	tags := v.Tags().Map()
+	//	iter := v.FieldIterator()
+	//	for ; ; {
+	//		var value interface{}
+	//		switch iter.Type() {
+	//		case models.Integer:
+	//			value, _ = iter.IntegerValue()
+	//		case models.Float:
+	//			value, _ = iter.FloatValue()
+	//		case models.String:
+	//			value = iter.StringValue()
+	//		}
+	//		dp := &OpenTsdbDataPoint{
+	//			Metric:    string(v.Name()) + "." + string(iter.FieldKey()),
+	//			Timestamp: v.Time().UnixNano() / 1000000,
+	//			Value:     value,
+	//			Tags:      tags,
+	//		}
+	//		tsdbPoints = append(tsdbPoints, dp)
+	//	}
+	//}
+
 	return tsdbPoints, nil
 }
 
@@ -136,18 +183,31 @@ func (tsdb *OpentsdbBackend) Write(p []byte) error {
 	return nil
 }
 
-func (tsdb *OpentsdbBackend) send(tsdbPoints []DataPoint) error {
+func (tsdb *OpentsdbBackend) send(tsdbPoints []*OpenTsdbDataPoint) error {
 	data, err := json.Marshal(tsdbPoints)
 	if err != nil {
 		return err
 	}
-	//todo add compress support
+	origin := data
+	log.Println("json data", string(origin))
+	if tsdb.compress != 0 {
+		var buf bytes.Buffer
+		err := Compress(&buf, data)
+		if err != nil {
+			log.Printf("write file error: %s\n", err)
+			return err
+		}
+		data = buf.Bytes()
+	}
+
 	req, err := http.NewRequest("POST", tsdb.endpoint, bytes.NewReader(data))
 	req.Header.Add("Content-Type", "application/json")
+	if tsdb.compress != 0 {
+		req.Header.Add("Content-Encoding", "gzip")
+	}
 	resp, err := tsdb.client.Do(req)
 	if err != nil {
 		log.Print("http error: ", err)
-		tsdb.active = false
 		return err
 	}
 	defer resp.Body.Close()
@@ -167,6 +227,7 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []DataPoint) error {
 	// http://opentsdb.net/docs/build/html/api_http/put.html
 	switch resp.StatusCode {
 	case 400:
+		log.Println("post failed", string(origin))
 		err = ErrBadRequest
 	case 404:
 		err = ErrNotFound
@@ -177,13 +238,13 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []DataPoint) error {
 	return err
 }
 
-func covertFalconToDataPoints(value []*FalconMetricValue) []DataPoint {
-	var points []DataPoint
+func covertFalconToDataPoints(value []*FalconMetricValue) []*OpenTsdbDataPoint {
+	var points []*OpenTsdbDataPoint
 	for _, v := range value {
-		x := DataPoint{
+		x := &OpenTsdbDataPoint{
 			Metric:    v.Metric,
 			Timestamp: v.Timestamp,
-			Value:     v.Value,
+			Value:     []byte(fmt.Sprint(v.Value)),
 			Tags:      v.TagMap,
 		}
 		points = append(points, x)

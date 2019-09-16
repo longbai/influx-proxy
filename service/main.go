@@ -16,6 +16,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/shell909090/influx-proxy/backend"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	_ "net/http/pprof"
 )
 
 var (
@@ -24,6 +26,7 @@ var (
 	NodeName    string
 	RedisConf   string
 	LogFilePath string
+	TransferAddr string
 
 	OpentsdbAddr string
 	KafkaAddr    string
@@ -37,11 +40,7 @@ func init() {
 	flag.StringVar(&ConfigFile, "config", "", "config file")
 	flag.StringVar(&NodeName, "node", "l1", "node name")
 	flag.StringVar(&RedisConf, "redis-conf", "redis.conf", "redis server config file")
-
-	flag.StringVar(&OpentsdbAddr, "tsdb", "", "open tsdb server")
-
-	flag.StringVar(&KafkaAddr, "kafka", "", "kafka server")
-	flag.StringVar(&KafkaTopic, "topic", "", "kafka topic")
+	flag.StringVar(&TransferAddr, "transfer-bind", ":8433", "transfer server addr")
 	flag.Parse()
 }
 
@@ -101,7 +100,11 @@ func main() {
 	if nodeCfg.IdleTimeout <= 0 {
 		server.IdleTimeout = 10 * time.Second
 	}
-	go transfer.StartRpc(":8433", ic)
+	go func() {
+		_ = http.ListenAndServe("localhost:6060", nil)
+	}()
+
+	go transfer.StartRpc(TransferAddr, ic)
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Print(err)

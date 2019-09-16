@@ -30,13 +30,14 @@ type NodeConfig struct {
 	WriteTracing int    `yaml:"write_tracing"`
 	QueryTracing int    `yaml:"query_tracing"`
 
-	KafkaEnable  int    `yaml:"kafka"`
-	KafkaTopic   string `yaml:"kafka_topic"`
-	KafkaServers string `yaml:"kafka_servers"`
-	//KafkaCompressMode string `yaml:"kafka_compress_mode"`
+	KafkaEnable       int    `yaml:"kafka"`
+	KafkaTopic        string `yaml:"kafka_topic"`
+	KafkaServers      string `yaml:"kafka_servers"`
+	KafkaCompressMode string `yaml:"kafka_compress_mode"`
 
-	OpentsdbEnable int    `yaml:"opentsdb"`
-	OpentsdbServer string `yaml:"opentsdb_server"`
+	OpentsdbEnable   int    `yaml:"opentsdb"`
+	OpentsdbServer   string `yaml:"opentsdb_server"`
+	OpentsdbCompress int    `yaml:"opentsdb_compress"`
 }
 
 type BackendConfig struct {

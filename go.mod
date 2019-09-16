@@ -11,6 +11,7 @@ require (
 	gopkg.in/jcmturner/goidentity.v3 v3.0.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/redis.v5 v5.2.9
+	gopkg.in/yaml.v2 v2.2.2
 )
 
 go 1.13

@@ -96,9 +96,10 @@ func (c *serverCodec) ReadRequestBody(x interface{}) error {
 	// Should think about making RPC more general.
 	var params [1]interface{}
 	params[0] = x
-	fmt.Println("data ", string(*c.req.Params))
 	err := json.Unmarshal(*c.req.Params, &params)
-	fmt.Println(err)
+	if err != nil {
+		fmt.Println("json rpc server read", err)
+	}
 	return err
 }
 

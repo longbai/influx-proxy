@@ -3,6 +3,7 @@ package transfer
 import (
 	"fmt"
 	"github.com/shell909090/influx-proxy/backend"
+	"log"
 	"time"
 )
 
@@ -68,5 +69,6 @@ func (t *Transfer) Update(args []*backend.FalconMetricValue, reply *TransferResp
 	reply.Message = "ok"
 	reply.Total = len(args)
 	reply.Latency = (time.Now().UnixNano() - start.UnixNano()) / 1000000
+	log.Println("transfer.update", len(args), "duration", reply.Latency)
 	return nil
 }

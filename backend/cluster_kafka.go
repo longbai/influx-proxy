@@ -49,19 +49,36 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 
 	cfg.Producer.MaxMessageBytes = maxMessageBytes
 
+	switch config.KafkaCompressMode{
+	case "lz4":
+		cfg.Version = sarama.V0_10_0_0
+		cfg.Producer.Compression = sarama.CompressionLZ4
+	case "gzip":
+		cfg.Producer.Compression = sarama.CompressionGZIP
+		//cfg.Producer.CompressionLevel = sarama.CompressionLevelDefault
+	case "snappy":
+		cfg.Producer.Compression = sarama.CompressionSnappy
+	default:
+		cfg.Producer.Compression = sarama.CompressionNone
+	}
+
 	producer, err := sarama.NewSyncProducer(servers, cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return &KafkaBackend{
+	kfk := &KafkaBackend{
 		enable:    1,
 		servers:   servers,
 		topic:     topic,
 		cfg:       cfg,
 		lastError: nil,
 		producer:  producer,
-	}, nil
+	}
+
+	go kfk.startLoop()
+	go kfk.pingChan()
+	return kfk, nil
 }
 
 func (kafka *KafkaBackend) send(p [][]byte) error {
@@ -102,6 +119,7 @@ func (kafka *KafkaBackend) pingChan() {
 }
 
 func (kafka *KafkaBackend) startLoop() {
+	log.Println("kafka start run")
 	buffer := make([][]byte, 2*batchSize)
 	buffer = buffer[:0]
 	last := time.Now()
@@ -118,13 +136,13 @@ func (kafka *KafkaBackend) startLoop() {
 				go func() {
 					if err := kafka.send(bak); err != nil {
 						// TODO retry
-						log.Println("loopSend failed -", err)
+						log.Println("loopSend failed more", l, err)
 					}
 				}()
-			} else {
+			} else if l > 0 {
 				if err := kafka.send(buffer); err != nil {
 					// TODO retry
-					log.Println("loopSend failed -", err)
+					log.Println("loopSend failed", l, err)
 				}
 			}
 

@@ -6,7 +6,6 @@ package backend
 
 import (
 	"bytes"
-	"compress/gzip"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -23,20 +22,6 @@ var (
 	ErrInternal   = errors.New("Internal Error")
 	ErrUnknown    = errors.New("Unknown Error")
 )
-
-func Compress(buf *bytes.Buffer, p []byte) (err error) {
-	zip := gzip.NewWriter(buf)
-	n, err := zip.Write(p)
-	if err != nil {
-		return
-	}
-	if n != len(p) {
-		err = io.ErrShortWrite
-		return
-	}
-	err = zip.Close()
-	return
-}
 
 type HttpBackend struct {
 	client    *http.Client
