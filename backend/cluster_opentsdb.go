@@ -64,7 +64,7 @@ func (tsdb *OpentsdbBackend) pingChan() {
 
 func (tsdb *OpentsdbBackend) startLoop() {
 	log.Println("opentsdb start run")
-	buffer := make([]*OpenTsdbDataPoint, 2*batchSize)
+	buffer := make([]*OpenTsdbDataPoint, batchSize)
 	buffer = buffer[:0]
 	last := time.Now()
 	for data := range tsdb.ch_points {
@@ -139,34 +139,6 @@ func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err er
 		}
 
 	}
-
-	//points, err := models.ParsePoints(p)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//var tsdbPoints []*OpenTsdbDataPoint
-	//for _, v := range points {
-	//	tags := v.Tags().Map()
-	//	iter := v.FieldIterator()
-	//	for ; ; {
-	//		var value interface{}
-	//		switch iter.Type() {
-	//		case models.Integer:
-	//			value, _ = iter.IntegerValue()
-	//		case models.Float:
-	//			value, _ = iter.FloatValue()
-	//		case models.String:
-	//			value = iter.StringValue()
-	//		}
-	//		dp := &OpenTsdbDataPoint{
-	//			Metric:    string(v.Name()) + "." + string(iter.FieldKey()),
-	//			Timestamp: v.Time().UnixNano() / 1000000,
-	//			Value:     value,
-	//			Tags:      tags,
-	//		}
-	//		tsdbPoints = append(tsdbPoints, dp)
-	//	}
-	//}
 
 	return tsdbPoints, nil
 }
