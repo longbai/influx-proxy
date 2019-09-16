@@ -7,7 +7,6 @@ package main
 import (
 	"errors"
 	"flag"
-	"github.com/shell909090/influx-proxy/transfer"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/shell909090/influx-proxy/backend"
+	"github.com/shell909090/influx-proxy/transfer"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	_ "net/http/pprof"

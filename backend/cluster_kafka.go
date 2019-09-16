@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"fmt"
 	"github.com/Shopify/sarama"
 	"log"
 	"os"
@@ -74,6 +75,7 @@ func NewKafka(config *NodeConfig) (*KafkaBackend, error) {
 		cfg:       cfg,
 		lastError: nil,
 		producer:  producer,
+		ch_lines: make(chan []byte, batchSize),
 	}
 
 	go kfk.startLoop()
@@ -93,7 +95,7 @@ func (kafka *KafkaBackend) send(p [][]byte) error {
 		}
 		messages = append(messages, msg)
 	}
-
+	fmt.Println("kafka sent", len(messages))
 	return kafka.producer.SendMessages(messages)
 }
 

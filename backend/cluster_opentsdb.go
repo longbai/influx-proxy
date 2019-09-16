@@ -31,7 +31,7 @@ type OpenTsdbDataPoint struct {
 	Tags      map[string]string `json:"tags"`
 }
 
-const batchSize = 1024
+const batchSize = 16*1024
 
 func NewOpentsdb(config *NodeConfig) (*OpentsdbBackend, error) {
 	if config.OpentsdbEnable == 0 {
@@ -189,7 +189,7 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []*OpenTsdbDataPoint) error {
 		return err
 	}
 	origin := data
-	log.Println("json data", string(origin))
+	fmt.Println("json data", string(origin))
 	if tsdb.compress != 0 {
 		var buf bytes.Buffer
 		err := Compress(&buf, data)
@@ -205,6 +205,7 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []*OpenTsdbDataPoint) error {
 	if tsdb.compress != 0 {
 		req.Header.Add("Content-Encoding", "gzip")
 	}
+	fmt.Println("opentsdb sent", len(tsdbPoints))
 	resp, err := tsdb.client.Do(req)
 	if err != nil {
 		log.Print("http error: ", err)

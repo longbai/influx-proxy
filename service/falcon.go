@@ -3,7 +3,6 @@ package main
 import (
 	"compress/gzip"
 	"github.com/gin-gonic/gin"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -92,13 +91,7 @@ func (hs *HttpService) push(c *gin.Context) {
 		body = b
 	}
 
-	p, err := ioutil.ReadAll(body)
-	if err != nil {
-		c.String(http.StatusBadRequest, err.Error())
-		return
-	}
-
-	count, _ := hs.ic.FalconPush(p)
+	count, _ := hs.ic.FalconPush(body)
 	c.JSON(http.StatusOK, Dto{Msg: "success", Data: &TransferResp{Msg: "ok", Total: count}})
 	return
 }

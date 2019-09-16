@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"strconv"
 	"strings"
@@ -70,14 +71,11 @@ func (ic *InfluxCluster) FalconPushMetric(metrics []*FalconMetricValue) (count i
 				v.TagMap["endpoint"] = v.Endpoint
 			}
 		}
-
 		data := convertFalconToInfluxBytes(v)
 		lines = append(lines, data)
 		_ = ic.WriteRow(data)
 	}
-
 	_ = ic.opentsdb.WriteFalcon(metrics)
-
 	ic.lock.RLock()
 	defer ic.lock.RUnlock()
 	if len(ic.bas) > 0 {
@@ -93,9 +91,10 @@ func (ic *InfluxCluster) FalconPushMetric(metrics []*FalconMetricValue) (count i
 	return len(metrics), err
 }
 
-func (ic *InfluxCluster) FalconPush(p []byte) (count int, err error) {
+func (ic *InfluxCluster) FalconPush(r io.Reader) (count int, err error) {
 	var metrics []*FalconMetricValue
-	err = json.Unmarshal(p, &metrics)
+	d := json.NewDecoder(r)
+	err = d.Decode(&metrics)
 	if err != nil {
 		return 0, err
 	}
