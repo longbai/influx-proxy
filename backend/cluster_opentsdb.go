@@ -80,13 +80,13 @@ func (tsdb *OpentsdbBackend) startLoop() {
 				go func() {
 					if err := tsdb.send(bak); err != nil {
 						// TODO retry
-						log.Println("loopSend failed more", l, err, cap(buffer), cap(tsdb.ch_points))
+						log.Println("loopSend failed more", l, err, len(buffer), len(tsdb.ch_points))
 					}
 				}()
 			} else if l > 0 {
 				if err := tsdb.send(buffer); err != nil {
 					// TODO retry
-					log.Println("loopSend failed", l, err, cap(buffer), cap(tsdb.ch_points))
+					log.Println("loopSend failed", l, err, len(buffer), len(tsdb.ch_points))
 				}
 			}
 
@@ -171,43 +171,48 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []*OpenTsdbDataPoint) error {
 		data = buf.Bytes()
 	}
 
-	req, err := http.NewRequest("POST", tsdb.endpoint, bytes.NewReader(data))
-	req.Header.Add("Content-Type", "application/json")
-	if tsdb.compress != 0 {
-		req.Header.Add("Content-Encoding", "gzip")
-	}
-	log.Println("opentsdb sent", len(tsdbPoints))
-	resp, err := tsdb.client.Do(req)
-	if err != nil {
-		log.Print("http error: ", err)
+	for i := 0; i < 2; i++ {
+		req, err := http.NewRequest("POST", tsdb.endpoint, bytes.NewReader(data))
+		req.Header.Add("Content-Type", "application/json")
+		if tsdb.compress != 0 {
+			req.Header.Add("Content-Encoding", "gzip")
+		}
+		log.Println("opentsdb sent", len(tsdbPoints))
+		resp, err := tsdb.client.Do(req)
+		if err != nil {
+			log.Print("http error: ", err)
+			 continue
+		}
+
+		if resp.StatusCode == 204 {
+			_ = resp.Body.Close()
+			return nil
+		}
+
+		log.Println("write status code: ", resp.StatusCode)
+
+		respBuf, err := ioutil.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			log.Println("read all error: ", err)
+			return err
+		}
+		log.Printf("error response: %s\n", respBuf)
+
+		// http://opentsdb.net/docs/build/html/api_http/put.html
+		switch resp.StatusCode {
+		case 400:
+			log.Println("post failed", string(origin))
+			err = ErrBadRequest
+		case 404:
+			err = ErrNotFound
+		default: // mostly tcp connection timeout
+			log.Printf("status: %d", resp.StatusCode)
+			err = ErrUnknown
+		}
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 204 {
-		return nil
-	}
-
-	log.Println("write status code: ", resp.StatusCode)
-
-	respBuf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		log.Println("read all error: ", err)
-		return err
-	}
-	log.Printf("error response: %s\n", respBuf)
-
-	// http://opentsdb.net/docs/build/html/api_http/put.html
-	switch resp.StatusCode {
-	case 400:
-		log.Println("post failed", string(origin))
-		err = ErrBadRequest
-	case 404:
-		err = ErrNotFound
-	default: // mostly tcp connection timeout
-		log.Printf("status: %d", resp.StatusCode)
-		err = ErrUnknown
-	}
-	return err
+	return nil
 }
 
 func covertFalconToDataPoints(value []*FalconMetricValue) []*OpenTsdbDataPoint {
