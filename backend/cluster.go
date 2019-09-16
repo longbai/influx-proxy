@@ -95,7 +95,8 @@ func NewInfluxCluster(cfgsrc ConfigSource, nodecfg *NodeConfig) (ic *InfluxClust
 		stats:          &Statistics{},
 		counter:        &Statistics{},
 		ticker:         time.NewTicker(10 * time.Second),
-		defaultTags:    map[string]string{"addr": nodecfg.ListenAddr},
+		//opentsdb cant accept ":" in request
+		defaultTags:    map[string]string{"addr": strings.Replace(nodecfg.ListenAddr, ":", ";", -1)},
 		WriteTracing:   nodecfg.WriteTracing,
 		QueryTracing:   nodecfg.QueryTracing,
 	}
