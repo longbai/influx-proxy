@@ -138,8 +138,12 @@ func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err er
 					v = v[:len(v)-1]
 				}
 			}
+			fieldKey := string(measurement)
+			if len(fields) > 1 || k != "value"{
+				fieldKey = fieldKey + "." + k
+			}
 			tsdbPoints = append(tsdbPoints, &OpenTsdbDataPoint{
-				Metric:    string(measurement) + "." + k,
+				Metric:    fieldKey,
 				Timestamp: t / 1000000,
 				Value:     v,
 				Tags:      tags,
