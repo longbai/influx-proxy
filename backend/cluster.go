@@ -122,12 +122,14 @@ func NewInfluxCluster(cfgsrc ConfigSource, nodecfg *NodeConfig) (ic *InfluxClust
 
 	ic.kafka, err = NewKafka(nodecfg)
 	if err != nil {
-		log.Println(err)
+		panic(err)
+		return
 	}
 
 	ic.opentsdb, err = NewOpentsdb(nodecfg)
 	if err != nil {
-		log.Println(err)
+		panic(err)
+		return
 	}
 
 	// feature
@@ -464,7 +466,7 @@ func (ic *InfluxCluster) Query(w http.ResponseWriter, req *http.Request) (err er
 func (ic *InfluxCluster) writeLine(key string, line []byte) (err error) {
 	bs, ok := ic.GetBackends(key)
 	if !ok {
-		log.Printf("new measurement: %s\n", key)
+		log.Printf("backend not found: %s\n", key)
 		atomic.AddInt64(&ic.stats.PointsWrittenFail, 1)
 		// TODO: new measurement?
 		return

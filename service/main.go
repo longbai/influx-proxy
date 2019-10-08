@@ -14,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/shell909090/influx-proxy/backend"
-	"github.com/shell909090/influx-proxy/transfer"
+	"github.com/shell909090/influx-proxy/openfalcon"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	_ "net/http/pprof"
@@ -36,7 +36,7 @@ var (
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 
-	flag.StringVar(&LogFilePath, "log-file-path", "/var/log/influx-proxy.log", "output file")
+	flag.StringVar(&LogFilePath, "log-file-path", "influx-proxy.log", "output file")
 	flag.StringVar(&ConfigFile, "config", "", "config file")
 	flag.StringVar(&NodeName, "node", "l1", "node name")
 	flag.StringVar(&RedisConf, "redis-conf", "redis.conf", "redis server config file")
@@ -68,6 +68,10 @@ func main() {
 			log.Print("load config failed: ", err)
 			return
 		}
+		if b, _ := configSource.LoadAllBackends(); len(b) ==0 {
+			panic("no  backends")
+			return
+		}
 		log.Printf("file config loaded.")
 	} else if RedisConf != "" {
 		configSource, err = backend.NewRedisConfigSourceFromFile(RedisConf, NodeName)
@@ -85,7 +89,11 @@ func main() {
 	}
 
 	ic := backend.NewInfluxCluster(configSource, &nodeCfg)
-	ic.LoadConfig()
+	err = ic.LoadConfig()
+	if err != nil {
+		panic(err)
+		return
+	}
 
 	mux := gin.Default()
 	NewHttpService(ic, nodeCfg.DB).Register(mux)
@@ -104,7 +112,7 @@ func main() {
 		_ = http.ListenAndServe("localhost:6060", nil)
 	}()
 
-	go transfer.StartRpc(TransferAddr, ic)
+	go openfalcon.StartRpc(TransferAddr, ic)
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Print(err)

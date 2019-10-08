@@ -1,4 +1,4 @@
-package transfer
+package openfalcon
 
 import (
 	"fmt"
@@ -17,18 +17,6 @@ type TransferResp struct {
 	Latency    int64
 }
 
-type NullRpcRequest struct {
-}
-
-// code == 0 => success
-// code == 1 => bad request
-type SimpleRpcResponse struct {
-	Code int `json:"code"`
-}
-
-func (this *SimpleRpcResponse) String() string {
-	return fmt.Sprintf("<Code: %d>", this.Code)
-}
 
 func (t *TransferResp) String() string {
 	s := fmt.Sprintf("TransferResp total=%d, err_invalid=%d, latency=%dms",

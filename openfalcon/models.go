@@ -1,4 +1,4 @@
-package transfer
+package openfalcon
 
 type MetaData struct {
 	Metric      string            `json:"metric"`

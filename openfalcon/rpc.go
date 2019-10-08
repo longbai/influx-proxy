@@ -1,6 +1,7 @@
-package transfer
+package openfalcon
 
 import (
+	"fmt"
 	"github.com/shell909090/influx-proxy/backend"
 	"log"
 	"net"
@@ -22,7 +23,10 @@ func StartRpc(addr string, ic *backend.InfluxCluster) {
 
 	server := rpc.NewServer()
 	err = server.Register(&Transfer{ic})
-
+	if err != nil {
+		log.Fatalf("regisger fail: %s", err)
+	}
+	err = server.Register(&agent)
 	if err != nil {
 		log.Fatalf("regisger fail: %s", err)
 	}
@@ -35,4 +39,18 @@ func StartRpc(addr string, ic *backend.InfluxCluster) {
 
 		go server.ServeCodec(NewServerCodec(conn))
 	}
+}
+
+
+type NullRpcRequest struct {
+}
+
+// code == 0 => success
+// code == 1 => bad request
+type SimpleRpcResponse struct {
+	Code int `json:"code"`
+}
+
+func (this *SimpleRpcResponse) String() string {
+	return fmt.Sprintf("<Code: %d>", this.Code)
 }

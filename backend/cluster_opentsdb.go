@@ -98,13 +98,15 @@ func (tsdb *OpentsdbBackend) startLoop() {
 
 func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err error) {
 	lines := bytes.Split(p, []byte("\n"))
-
 	for _, line := range lines {
+		if len(line) <= 1 {
+			continue
+		}
 		var tags = map[string]string{}
 		var fields = map[string][]byte{}
+		line = bytes.Replace(line, []byte("\\ "), []byte("_"), -1)
 		stringList := bytes.Split(line, []byte(" "))
 		if len(stringList) != 3 {
-			log.Println("list parse failed", len(stringList), string(line))
 			continue
 		}
 		tagList := bytes.Split(stringList[0], []byte(","))
