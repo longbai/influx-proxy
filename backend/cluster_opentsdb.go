@@ -131,7 +131,6 @@ func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err er
 			continue
 		}
 
-
 		for k, v := range fields {
 			// skip influxdb int type
 			if bytes.HasSuffix(v, []byte("i")) {
@@ -141,7 +140,7 @@ func covertInfluxToDataPoints(p []byte) (tsdbPoints []*OpenTsdbDataPoint, err er
 				}
 			}
 			fieldKey := string(measurement)
-			if len(fields) > 1 || k != "value"{
+			if len(fields) > 1 || k != "value" {
 				fieldKey = fieldKey + "." + k
 			}
 			tsdbPoints = append(tsdbPoints, &OpenTsdbDataPoint{
@@ -195,7 +194,7 @@ func (tsdb *OpentsdbBackend) send(tsdbPoints []*OpenTsdbDataPoint) error {
 		resp, err := tsdb.client.Do(req)
 		if err != nil {
 			log.Print("http error: ", err)
-			 continue
+			continue
 		}
 
 		if resp.StatusCode == 204 {

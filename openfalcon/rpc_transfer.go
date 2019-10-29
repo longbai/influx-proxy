@@ -17,7 +17,6 @@ type TransferResp struct {
 	Latency    int64
 }
 
-
 func (t *TransferResp) String() string {
 	s := fmt.Sprintf("TransferResp total=%d, err_invalid=%d, latency=%dms",
 		t.Total, t.ErrInvalid, t.Latency)

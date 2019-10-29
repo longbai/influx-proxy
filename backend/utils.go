@@ -39,7 +39,7 @@ func (b *Buffer) readSlice(delim byte) (line []byte, err error) {
 }
 
 func Compress(buf *bytes.Buffer, p []byte) (err error) {
-	zip := gzip.NewWriter(buf)
+	zip, _ := gzip.NewWriterLevel(buf, gzip.BestSpeed)
 	n, err := zip.Write(p)
 	if err != nil {
 		return

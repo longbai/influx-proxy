@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shell909090/influx-proxy/backend"
-	"github.com/shell909090/influx-proxy/openfalcon"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/shell909090/influx-proxy/backend"
+	"github.com/shell909090/influx-proxy/openfalcon"
 	_ "net/http/pprof"
 )
 
@@ -27,6 +27,9 @@ var (
 	RedisConf    string
 	LogFilePath  string
 	TransferAddr string
+	MysqlAddr string
+	SddcServer string
+	Hosts string
 
 	OpentsdbAddr string
 	KafkaAddr    string
@@ -41,6 +44,9 @@ func init() {
 	flag.StringVar(&NodeName, "node", "l1", "node name")
 	flag.StringVar(&RedisConf, "redis-conf", "redis.conf", "redis server config file")
 	flag.StringVar(&TransferAddr, "transfer-bind", ":8433", "transfer server addr")
+	flag.StringVar(&MysqlAddr, "msyql", "", "hbs mysql address")
+	flag.StringVar(&SddcServer, "sddc", "", "hbs sddc server")
+	flag.StringVar(&Hosts, "hosts", "", "hbs hosts")
 	flag.Parse()
 }
 
@@ -68,7 +74,7 @@ func main() {
 			log.Print("load config failed: ", err)
 			return
 		}
-		if b, _ := configSource.LoadAllBackends(); len(b) ==0 {
+		if b, _ := configSource.LoadAllBackends(); len(b) == 0 {
 			panic("no  backends")
 			return
 		}
@@ -95,6 +101,8 @@ func main() {
 		return
 	}
 
+	//hbs.InitDb(MysqlAddr, 10)
+
 	mux := gin.Default()
 	NewHttpService(ic, nodeCfg.DB).Register(mux)
 
@@ -112,10 +120,10 @@ func main() {
 		_ = http.ListenAndServe("localhost:6060", nil)
 	}()
 
-	go openfalcon.StartRpc(TransferAddr, ic)
+	go openfalcon.StartRpc(TransferAddr, ic, SddcServer, Hosts)
 	err = server.ListenAndServe()
 	if err != nil {
-		log.Print(err)
+		log.Println(err)
 		return
 	}
 }

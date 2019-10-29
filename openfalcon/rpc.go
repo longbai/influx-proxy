@@ -2,13 +2,14 @@ package openfalcon
 
 import (
 	"fmt"
-	"github.com/shell909090/influx-proxy/backend"
 	"log"
 	"net"
 	"net/rpc"
+
+	"github.com/shell909090/influx-proxy/backend"
 )
 
-func StartRpc(addr string, ic *backend.InfluxCluster) {
+func StartRpc(addr string, ic *backend.InfluxCluster, sddcServer, hosts string) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		log.Fatalf("net.ResolveTCPAddr fail: %s", err)
@@ -26,10 +27,10 @@ func StartRpc(addr string, ic *backend.InfluxCluster) {
 	if err != nil {
 		log.Fatalf("regisger fail: %s", err)
 	}
-	err = server.Register(&agent)
-	if err != nil {
-		log.Fatalf("regisger fail: %s", err)
-	}
+	//err = server.Register(&Agent{SddcServer:sddcServer, Hosts:hosts})
+	//if err != nil {
+	//	log.Fatalf("regisger fail: %s", err)
+	//}
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -41,7 +42,6 @@ func StartRpc(addr string, ic *backend.InfluxCluster) {
 	}
 }
 
-
 type NullRpcRequest struct {
 }
 
@@ -49,6 +49,7 @@ type NullRpcRequest struct {
 // code == 1 => bad request
 type SimpleRpcResponse struct {
 	Code int `json:"code"`
+	UUID string `json:"uuid,omitempty"`
 }
 
 func (this *SimpleRpcResponse) String() string {
